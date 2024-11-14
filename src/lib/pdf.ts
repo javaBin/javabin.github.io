@@ -1,29 +1,18 @@
+import { formSchema } from "@/lib/expense"
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib"
-
-type ExpenseItem = {
-  description: string
-  category: string
-  amount: number
-  attachments: File[]
-}
-
-type GeneratePDFProps = {
-  name: string
-  address: string
-  bankAccount: string
-  email: string
-  date: string
-  expenses: ExpenseItem[]
-}
+import { z } from "zod"
 
 export async function generatePDF({
   name,
-  address,
+  streetAddress,
+  postalCode,
+  city,
+  country,
   bankAccount,
   email,
   date,
   expenses,
-}: GeneratePDFProps): Promise<Uint8Array> {
+}: z.infer<typeof formSchema>) {
   const pdfDoc = await PDFDocument.create()
   const coverPage = pdfDoc.addPage()
   const { width, height } = coverPage.getSize()
@@ -49,7 +38,7 @@ export async function generatePDF({
   // Personal information
   const infoLines = [
     { label: "Name:", value: name },
-    { label: "Address:", value: address },
+    { label: "Address:", value: `${streetAddress}, ${postalCode} ${city}, ${country}` },
     { label: "Bank Account:", value: bankAccount },
     { label: "Email:", value: email },
     { label: "Date:", value: formattedDate },
@@ -76,17 +65,19 @@ export async function generatePDF({
   })
 
   // Add expense items table
-  const tableTop = height - 250
+  const tableTop = height - 275
   const rowHeight = 30
   const columns = {
-    description: { x: 50, width: 200 },
-    category: { x: 260, width: 150 },
-    amount: { x: 420, width: 100 },
+    attachment: { x: 50, width: 50 },
+    description: { x: 100, width: 200 },
+    category: { x: 300, width: 200 },
+    amount: { x: 500, width: 100 },
   }
 
   // Table headers
   Object.entries(columns).forEach(([key, { x }]) => {
-    coverPage.drawText(key.charAt(0).toUpperCase() + key.slice(1), {
+    const text = key.charAt(0).toUpperCase() + key.slice(1)
+    coverPage.drawText(key === "attachment" ? "Att#" : text, {
       x,
       y: tableTop,
       size: 12,
@@ -99,13 +90,14 @@ export async function generatePDF({
   let totalAmount = 0
   expenses.forEach((expense, index) => {
     const y = tableTop - (index + 1) * rowHeight
-    
+
     coverPage.drawText(expense.description, {
       x: columns.description.x,
       y,
       size: 10,
       font: regularFont,
       color: rgb(0, 0, 0),
+      maxWidth: columns.description.width,
     })
 
     coverPage.drawText(expense.category, {
@@ -114,22 +106,37 @@ export async function generatePDF({
       size: 10,
       font: regularFont,
       color: rgb(0, 0, 0),
+      maxWidth: columns.category.width,
     })
 
     coverPage.drawText(expense.amount.toFixed(2), {
-      x: columns.amount.x,
+      x:
+        columns.amount.x +
+        regularFont.widthOfTextAtSize(expense.amount.toFixed(2), 10),
       y,
       size: 10,
       font: regularFont,
       color: rgb(0, 0, 0),
+      maxWidth: columns.amount.width,
     })
+
+    if (expense.attachment) {
+      coverPage.drawText(`${index + 1}`, {
+        x: columns.attachment.x,
+        y,
+        size: 10,
+        font: regularFont,
+        color: rgb(0, 0, 0),
+        maxWidth: columns.attachment.width,
+      })
+    }
 
     totalAmount += expense.amount
   })
 
-  // Draw total
+  // Adjust total position to align with new amount column
   coverPage.drawText("Total:", {
-    x: columns.category.x,
+    x: columns.amount.x - 10,
     y: tableTop - (expenses.length + 1) * rowHeight,
     size: 12,
     font,
@@ -137,7 +144,10 @@ export async function generatePDF({
   })
 
   coverPage.drawText(totalAmount.toFixed(2), {
-    x: columns.amount.x,
+    x:
+      columns.amount.x -
+      10 +
+      font.widthOfTextAtSize(totalAmount.toFixed(2), 12),
     y: tableTop - (expenses.length + 1) * rowHeight,
     size: 12,
     font,
@@ -145,31 +155,83 @@ export async function generatePDF({
   })
 
   // Add attachments with labels
-  for (const expense of expenses) {
-    for (const file of expense.attachments) {
-      const receiptBytes = await file.arrayBuffer()
-      const receiptPdf = await PDFDocument.load(receiptBytes)
-      const receiptPages = await pdfDoc.copyPages(
-        receiptPdf,
-        receiptPdf.getPageIndices(),
-      )
+  for (const [index, expense] of expenses.entries()) {
+    let receiptBytes: ArrayBufferLike
+    const attachment = expense.attachment
+    if (!attachment) continue
+    // Convert images to PDF if needed
+    if (attachment.type.startsWith("image/")) {
+      const pdfBytes = await imageFileToPdf(attachment)
+      receiptBytes = pdfBytes.buffer as ArrayBuffer
+    } else {
+      receiptBytes = (await attachment.arrayBuffer()) as ArrayBuffer
+    }
 
-      for (const page of receiptPages) {
-        // Add a header to identify which expense this attachment belongs to
-        const attachmentPage = pdfDoc.addPage(page)
-        attachmentPage.drawText(`Attachment for: ${expense.description}`, {
+    const receiptPdf = await PDFDocument.load(receiptBytes)
+    const receiptPages = await pdfDoc.copyPages(
+      receiptPdf,
+      receiptPdf.getPageIndices(),
+    )
+
+    for (const page of receiptPages) {
+      // Add a header to identify which expense this attachment belongs to
+      const attachmentPage = pdfDoc.addPage(page)
+      attachmentPage.drawText(
+        `Attachment for expense #${index + 1}: ${expense.description}`,
+        {
           x: 50,
-          y: attachmentPage.getHeight() - 50,
+          y: attachmentPage.getHeight() - (regularFont.heightAtSize(12) + 5),
           size: 12,
           font,
           color: rgb(0, 0, 0),
-        })
-      }
+        },
+      )
     }
   }
 
   return pdfDoc.save()
 }
 
-// Export these types for use in the form
-export type { ExpenseItem }
+// Add helper function to convert image to PDF
+const imageFileToPdf = async (file: File): Promise<Uint8Array> => {
+  const pdfDoc = await PDFDocument.create()
+  const page = pdfDoc.addPage([595, 842]) // A4 size in points
+
+  const imageBytes = await file.arrayBuffer()
+  let image
+
+  if (file.type === "image/jpeg") {
+    image = await pdfDoc.embedJpg(imageBytes)
+  } else if (file.type === "image/png") {
+    image = await pdfDoc.embedPng(imageBytes)
+  } else {
+    throw new Error("Unsupported image format")
+  }
+
+  // Calculate dimensions to fit the page while maintaining aspect ratio
+  const { width, height } = image.scale(1)
+  const aspectRatio = width / height
+  const maxWidth = 500 // Leave some margin
+  const maxHeight = 747 // Leave some margin
+  let scaledWidth = width
+  let scaledHeight = height
+
+  if (width > maxWidth || height > maxHeight) {
+    if (width / maxWidth > height / maxHeight) {
+      scaledWidth = maxWidth
+      scaledHeight = maxWidth / aspectRatio
+    } else {
+      scaledHeight = maxHeight
+      scaledWidth = maxHeight * aspectRatio
+    }
+  }
+
+  page.drawImage(image, {
+    x: (page.getWidth() - scaledWidth) / 2,
+    y: (page.getHeight() - scaledHeight) / 2,
+    width: scaledWidth,
+    height: scaledHeight,
+  })
+
+  return await pdfDoc.save()
+}

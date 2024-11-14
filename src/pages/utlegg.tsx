@@ -15,56 +15,11 @@ import { Input } from "@/components/ui/input"
 import { useState } from "react"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
-import { PDFDocument } from "pdf-lib"
 import { Label } from "@/components/ui/label"
 import { generatePDF } from "@/lib/pdf"
-import { Tags, Calendar, Trash, Trash2, User } from "lucide-react"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { EXPENSE_CATEGORIES } from "@/data/utleggsposter"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+import { Trash2 } from "lucide-react"
 import { CategorySelector } from "@/components/category-selector"
-
-const expenseItemSchema = z.object({
-  description: z.string().min(2, "Description required"),
-  category: z.string().min(1, "Category required"),
-  amount: z.number().min(0.01, "Amount must be greater than 0"),
-  attachments: z
-    .custom<FileList>()
-    .transform((files) => Array.from(files))
-    .refine((files) => files.length > 0, "At least one file is required"),
-})
-
-const formSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  address: z.string().min(5, "Please enter a valid address"),
-  bankAccount: z.string(),
-  email: z.string().email("Please enter a valid email address"),
-  date: z.string().min(1, "Please select a date"),
-  expenses: z
-    .array(expenseItemSchema)
-    .min(1, "At least one expense is required"),
-})
+import { formSchema } from "@/lib/expense"
 
 // Infer TypeScript type from the schema
 type FormValues = z.infer<typeof formSchema>
@@ -85,11 +40,21 @@ export default function ExpensePage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      address: "",
+      streetAddress: "",
+      postalCode: "",
+      city: "",
+      country: "Norway",
       bankAccount: "",
       email: "",
       date: new Date().toISOString().split("T")[0],
-      expenses: [{ description: "", category: "", amount: 0, attachments: [] }],
+      expenses: [
+        {
+          description: "",
+          category: "",
+          amount: 0,
+          attachment: undefined as unknown as File,
+        },
+      ],
     },
   })
 
@@ -98,76 +63,32 @@ export default function ExpensePage() {
     name: "expenses",
   })
 
-  // Track which combobox is currently open (if any)
-  const [openComboboxIndex, setOpenComboboxIndex] = useState<number | null>(
-    null,
-  )
-
-  // Add helper function to convert image to PDF
-  const imageFileToPdf = async (file: File): Promise<Uint8Array> => {
-    const pdfDoc = await PDFDocument.create()
-    const page = pdfDoc.addPage([595, 842]) // A4 size in points
-
-    const imageBytes = await file.arrayBuffer()
-    let image
-
-    if (file.type === "image/jpeg") {
-      image = await pdfDoc.embedJpg(imageBytes)
-    } else if (file.type === "image/png") {
-      image = await pdfDoc.embedPng(imageBytes)
-    } else {
-      throw new Error("Unsupported image format")
-    }
-
-    // Calculate dimensions to fit the page while maintaining aspect ratio
-    const { width, height } = image.scale(1)
-    const aspectRatio = width / height
-    const maxWidth = 500 // Leave some margin
-    const maxHeight = 747 // Leave some margin
-    let scaledWidth = width
-    let scaledHeight = height
-
-    if (width > maxWidth || height > maxHeight) {
-      if (width / maxWidth > height / maxHeight) {
-        scaledWidth = maxWidth
-        scaledHeight = maxWidth / aspectRatio
-      } else {
-        scaledHeight = maxHeight
-        scaledWidth = maxHeight * aspectRatio
-      }
-    }
-
-    page.drawImage(image, {
-      x: (page.getWidth() - scaledWidth) / 2,
-      y: (page.getHeight() - scaledHeight) / 2,
-      width: scaledWidth,
-      height: scaledHeight,
-    })
-
-    return await pdfDoc.save()
-  }
-
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true)
     try {
-      const pdfBytes = await generatePDF({
+      // Add the expense report cover page
+      const expenseReport = await generatePDF({
         name: data.name,
-        address: data.address,
+        streetAddress: data.streetAddress,
+        postalCode: data.postalCode,
+        city: data.city,
+        country: data.country,
         bankAccount: data.bankAccount,
         email: data.email,
         date: data.date,
         expenses: data.expenses,
       })
 
-      // Create and download the PDF
-      const blob = new Blob([pdfBytes], { type: "application/pdf" })
+      const blob = new Blob([expenseReport], { type: "application/pdf" })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
       link.setAttribute("download", `expense-report-${data.date}.pdf`)
+      // Create temporary link element to trigger download
       document.body.appendChild(link)
       link.click()
       link.remove()
+
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error("Error generating PDF:", error)
@@ -187,17 +108,7 @@ export default function ExpensePage() {
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="mb-6">
-        <Label>Default Category for All Expenses</Label>
-        <CategorySelector
-          selectedCategory={globalCategoryGroup}
-          onCategoryChange={setGlobalCategoryGroup}
-          selectedItem={globalCategoryItem}
-          onItemChange={setGlobalCategoryItem}
-        />
-      </div>
-
+    <div className="container mx-auto mt-12 py-10">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <FormField
@@ -215,12 +126,63 @@ export default function ExpensePage() {
 
           <FormField
             control={form.control}
-            name="address"
+            name="streetAddress"
             render={({ field }) => (
               <FormItem>
-                <Label>Adresse</Label>
+                <Label>Gateveien</Label>
                 <FormControl>
                   <Input placeholder="Gateveien 1, 0123 Oslo" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <Label>Postnummer</Label>
+                  <FormControl>
+                    <Input
+                      placeholder="0123"
+                      maxLength={4}
+                      {...field}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 4)
+                        field.onChange(value)
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <Label>Poststed</Label>
+                  <FormControl>
+                    <Input placeholder="Oslo" {...field} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="country"
+            render={({ field }) => (
+              <FormItem>
+                <Label>Land</Label>
+                <FormControl>
+                  <Input placeholder="Norway" {...field} />
                 </FormControl>
               </FormItem>
             )}
@@ -291,12 +253,21 @@ export default function ExpensePage() {
                     description: "",
                     category: "",
                     amount: 0,
-                    attachments: [],
+                    attachment: undefined,
                   })
                 }
               >
                 Add Expense
               </Button>
+            </div>
+            <div className="mb-6">
+              <Label>Default Category for All Expenses</Label>
+              <CategorySelector
+                selectedCategory={globalCategoryGroup}
+                onCategoryChange={setGlobalCategoryGroup}
+                selectedItem={globalCategoryItem}
+                onItemChange={setGlobalCategoryItem}
+              />
             </div>
 
             {fields.map((field, index) => (
@@ -421,19 +392,19 @@ export default function ExpensePage() {
 
                 <FormField
                   control={form.control}
-                  name={`expenses.${index}.attachments`}
+                  name={`expenses.${index}.attachment`}
                   render={({ field: { onChange, value, ...field } }) => (
                     <FormItem>
-                      <Label>Attachments</Label>
+                      <Label>Attachment</Label>
                       <FormControl>
                         <Input
                           type="file"
                           accept="application/pdf,image/*"
-                          multiple
-                          onChange={(e) => onChange(e.target.files)}
+                          onChange={(e) => onChange(e.target.files?.[0])}
                           {...field}
                         />
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
