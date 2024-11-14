@@ -146,13 +146,9 @@ export default function ExpensePage() {
                   <Label>Postnummer</Label>
                   <FormControl>
                     <Input
-                      placeholder="0123"
-                      maxLength={4}
                       {...field}
                       onChange={(e) => {
-                        const value = e.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, 4)
+                        const value = e.target.value.replace(/\D/g, "")
                         field.onChange(value)
                       }}
                     />
@@ -168,7 +164,7 @@ export default function ExpensePage() {
                 <FormItem>
                   <Label>Poststed</Label>
                   <FormControl>
-                    <Input placeholder="Oslo" {...field} />
+                    <Input {...field} />
                   </FormControl>
                 </FormItem>
               )}
@@ -253,7 +249,7 @@ export default function ExpensePage() {
                     description: "",
                     category: "",
                     amount: 0,
-                    attachment: undefined,
+                    attachment: new File([], ""),
                   })
                 }
               >
@@ -266,7 +262,9 @@ export default function ExpensePage() {
                 selectedCategory={globalCategoryGroup}
                 onCategoryChange={setGlobalCategoryGroup}
                 selectedItem={globalCategoryItem}
-                onItemChange={setGlobalCategoryItem}
+                onItemChange={(category, value) => {
+                  setGlobalCategoryItem(value)
+                }}
               />
             </div>
 
@@ -320,7 +318,7 @@ export default function ExpensePage() {
                             }
                           }}
                           selectedItem={getCategoryItemForExpense(index)}
-                          onItemChange={(value) => {
+                          onItemChange={(category, value) => {
                             field.onChange(value)
                             if (value === globalCategoryItem) {
                               setOverriddenCategoryItems((prev) => {
@@ -329,6 +327,10 @@ export default function ExpensePage() {
                                 return next
                               })
                             } else {
+                              setOverriddenCategories((prev) => ({
+                                ...prev,
+                                [index]: category,
+                              }))
                               setOverriddenCategoryItems((prev) => ({
                                 ...prev,
                                 [index]: value,

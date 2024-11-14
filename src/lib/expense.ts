@@ -12,7 +12,7 @@ export const expenseItemSchema = z.object({
   attachment: z
     .custom<File>((file) => file instanceof File, "File is required")
     .refine((file) => file.size > 0, "File is required")
-    .optional(), //TODO; Shouldn't be optional, but has to be??
+    .default(new File([], "")),
 })
 
 export const formSchema = z.object({

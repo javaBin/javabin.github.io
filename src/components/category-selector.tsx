@@ -25,11 +25,11 @@ import { ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-interface CategorySelectorProps {
+type CategorySelectorProps = {
   selectedCategory: string
   onCategoryChange: (category: string) => void
   selectedItem?: string
-  onItemChange?: (item: string) => void
+  onItemChange?: (category: string, item: string) => void
   showOverrideBadge?: boolean
   globalCategoryItem?: string
 }
@@ -114,7 +114,7 @@ export function CategorySelector({
                           key={label.fullName}
                           value={label.fullName}
                           onSelect={(value) => {
-                            onItemChange(value)
+                            onItemChange(selectedCategory, value)
                             setIsOpen(false)
                           }}
                         >
@@ -132,7 +132,7 @@ export function CategorySelector({
                         key={label.fullName}
                         value={label.fullName}
                         onSelect={(value) => {
-                          onItemChange(value)
+                          onItemChange(selectedCategory, value)
                           setIsOpen(false)
                         }}
                       >

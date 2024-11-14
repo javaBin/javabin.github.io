@@ -158,7 +158,6 @@ export async function generatePDF({
   for (const [index, expense] of expenses.entries()) {
     let receiptBytes: ArrayBufferLike
     const attachment = expense.attachment
-    if (!attachment) continue
     // Convert images to PDF if needed
     if (attachment.type.startsWith("image/")) {
       const pdfBytes = await imageFileToPdf(attachment)
