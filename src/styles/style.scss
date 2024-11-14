@@ -22,3 +22,8 @@
 @import "buttons";
 @import "timeline";
 @import "policy";
+@layer base {
+  :root {
+    --radius: 0.5rem;
+  }
+}
