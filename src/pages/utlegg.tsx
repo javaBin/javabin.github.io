@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,7 @@ import { generatePDF } from "@/lib/pdf"
 import { Trash2 } from "lucide-react"
 import { CategorySelector } from "@/components/category-selector"
 import { formSchema } from "@/lib/expense"
+import { createWorker } from "tesseract.js"
 
 // Infer TypeScript type from the schema
 type FormValues = z.infer<typeof formSchema>
@@ -106,6 +107,46 @@ export default function ExpensePage() {
   const getCategoryItemForExpense = (index: number) => {
     return overriddenCategoryItems[index] || globalCategoryItem
   }
+
+  // Helper function to extract numbers from text
+  const extractHighestAmount = (text: string): number | null => {
+    const numbers = text.match(/\d+([.,]\d{1,2})?/g)
+    if (!numbers) return null
+
+    return Math.max(...numbers.map((n) => parseFloat(n.replace(",", "."))))
+  }
+
+  // Process image with OCR
+  const processAttachment = useCallback(
+    async (file: File, index: number) => {
+      console.log("Processing attachment", file.type)
+      if (!file.type.startsWith("image/")) {
+        return // Only process images
+      }
+      try {
+        console.log("Creating worker")
+        const worker = await createWorker("nor") // Norwegian language support
+
+        const imageUrl = URL.createObjectURL(file)
+        const {
+          data: { text },
+        } = await worker.recognize(imageUrl)
+
+        console.log(text)
+
+        const amount = extractHighestAmount(text)
+        if (amount) {
+          form.setValue(`expenses.${index}.amount`, amount)
+        }
+
+        URL.revokeObjectURL(imageUrl)
+        await worker.terminate()
+      } catch (error) {
+        console.error("OCR processing failed:", error)
+      }
+    },
+    [form],
+  )
 
   return (
     <div className="container mx-auto mt-12 py-10">
@@ -402,7 +443,13 @@ export default function ExpensePage() {
                         <Input
                           type="file"
                           accept="application/pdf,image/*"
-                          onChange={(e) => onChange(e.target.files?.[0])}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              onChange(file)
+                              await processAttachment(file, index)
+                            }
+                          }}
                           {...field}
                         />
                       </FormControl>
