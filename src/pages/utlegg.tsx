@@ -21,6 +21,7 @@ import { Trash2 } from "lucide-react"
 import { CategorySelector } from "@/components/category-selector"
 import { formSchema } from "@/lib/expense"
 import { createWorker } from "tesseract.js"
+import AccountInput from "@/components/AccountInput"
 
 // Infer TypeScript type from the schema
 type FormValues = z.infer<typeof formSchema>
@@ -230,20 +231,9 @@ export default function ExpensePage() {
             name="bankAccount"
             render={({ field }) => (
               <FormItem>
-                <Label>Kontonummer (IBAN)</Label>
+                <Label>Kontonummer (IBAN eller BBAN)</Label>
                 <FormControl>
-                  <Input
-                    placeholder="NO## #### #### ###"
-                    {...field}
-                    onChange={(e) => {
-                      // Format input as user types
-                      let value = e.target.value.replace(/[^\dNO]/g, "")
-                      if (value.startsWith("NO")) {
-                        value = value.replace(/(\d{4})/g, "$1 ").trim()
-                      }
-                      field.onChange(value)
-                    }}
-                  />
+                  <AccountInput {...field} />
                 </FormControl>
               </FormItem>
             )}

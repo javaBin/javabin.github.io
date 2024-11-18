@@ -21,10 +21,25 @@ export const formSchema = z.object({
   postalCode: z.string().min(1, "Postal code is required"),
   city: z.string().min(1, "City is required"),
   country: z.string().min(1, "Country is required").default("Norway"),
-  bankAccount: z.string(),
+  bankAccount: z
+    .string()
+    .refine((str) => validateAccountNumber(str), "Invalid account number"),
   email: z.string().email("Please enter a valid email address"),
   date: z.string().min(1, "Please select a date"),
   expenses: z
     .array(expenseItemSchema)
     .min(1, "At least one expense is required"),
 })
+
+export const validateAccountNumber = (accountNumber: string) => {
+  const cleanAccountNumber = accountNumber.replace(/\D/g, "")
+  if (cleanAccountNumber.length !== 11) return false
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+  const sum = cleanAccountNumber
+    .slice(0, 10)
+    .split("")
+    .map((c) => parseInt(c))
+    .reduce((acc, digit, index) => acc + digit * (weights?.[index] ?? 0), 0)
+  const checkDigit = (11 - (sum % 11)) % 11
+  return checkDigit === parseInt(cleanAccountNumber.charAt(10))
+}
