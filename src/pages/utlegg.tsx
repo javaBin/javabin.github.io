@@ -22,6 +22,8 @@ import { CategorySelector } from "@/components/category-selector"
 import { formSchema } from "@/lib/expense"
 import { createWorker } from "tesseract.js"
 import AccountInput from "@/components/AccountInput"
+import { FileUploader } from "@/components/FileUploader"
+import { Toaster, toast } from "sonner"
 
 // Infer TypeScript type from the schema
 type FormValues = z.infer<typeof formSchema>
@@ -111,43 +113,55 @@ export default function ExpensePage() {
 
   // Helper function to extract numbers from text
   const extractHighestAmount = (text: string): number | null => {
-    const numbers = text.match(/\d+([.,]\d{1,2})?/g)
+    // const numbers = text.match(/\d+([.,]\d{1,2})?/g)
+    const numbers = text.match(/\d+[.,]+\d{1,2}/g)
     if (!numbers) return null
 
     return Math.max(...numbers.map((n) => parseFloat(n.replace(",", "."))))
   }
 
-  // Process image with OCR
-  const processAttachment = useCallback(
-    async (file: File, index: number) => {
-      console.log("Processing attachment", file.type)
-      if (!file.type.startsWith("image/")) {
-        return // Only process images
-      }
-      try {
-        console.log("Creating worker")
-        const worker = await createWorker("nor") // Norwegian language support
+  // Add this helper function for image resizing
+  const resizeImage = async (
+    file: File,
+    options: { maxWidth: number; maxHeight: number; quality: number },
+  ): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.src = URL.createObjectURL(file)
 
-        const imageUrl = URL.createObjectURL(file)
-        const {
-          data: { text },
-        } = await worker.recognize(imageUrl)
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        let { width, height } = img
 
-        console.log(text)
-
-        const amount = extractHighestAmount(text)
-        if (amount) {
-          form.setValue(`expenses.${index}.amount`, amount)
+        if (width > options.maxWidth) {
+          height = (height * options.maxWidth) / width
+          width = options.maxWidth
+        }
+        if (height > options.maxHeight) {
+          width = (width * options.maxHeight) / height
+          height = options.maxHeight
         }
 
-        URL.revokeObjectURL(imageUrl)
-        await worker.terminate()
-      } catch (error) {
-        console.error("OCR processing failed:", error)
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext("2d")
+        ctx?.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: "image/jpeg" }))
+            }
+          },
+          "image/jpeg",
+          options.quality,
+        )
+
+        URL.revokeObjectURL(img.src)
       }
-    },
-    [form],
-  )
+    })
+  }
 
   return (
     <div className="container mx-auto mt-12 py-10">
@@ -426,21 +440,47 @@ export default function ExpensePage() {
                 <FormField
                   control={form.control}
                   name={`expenses.${index}.attachment`}
-                  render={({ field: { onChange, value, ...field } }) => (
+                  render={({ field }) => (
                     <FormItem>
                       <Label>Attachment</Label>
                       <FormControl>
-                        <Input
-                          type="file"
-                          accept="application/pdf,image/*"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0]
-                            if (file) {
-                              onChange(file)
-                              await processAttachment(file, index)
+                        <FileUploader
+                          onUpload={async (files) => {
+                            const file = files[0]
+                            if (!file) {
+                              field.onChange(undefined)
+                              return
+                            }
+
+                            if (file.type.startsWith("image/")) {
+                              // TODO: Figure out what the sweet spot is, when I tried to change it further,
+                              // it didn't work on my taxi receipt..
+                              const resizedFile = await resizeImage(file, {
+                                maxWidth: 1800,
+                                maxHeight: 1800,
+                                quality: 0.8,
+                              })
+                              field.onChange(resizedFile)
+                            } else {
+                              field.onChange(file)
                             }
                           }}
+                          onOCRComplete={(amount) => {
+                            form.setValue(`expenses.${index}.amount`, amount)
+                          }}
+                          accept={{
+                            "image/*": [],
+                            "application/pdf": [],
+                          }}
+                          maxSize={10 * 1024 * 1024}
                           {...field}
+                          value={field.value?.size > 0 ? [field.value] : []}
+                          onValueChange={(files) => {
+                            const file = files?.[0]
+                            field.onChange(
+                              file && file?.size > 0 ? file : undefined,
+                            )
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -456,6 +496,7 @@ export default function ExpensePage() {
           </Button>
         </form>
       </Form>
+      <Toaster />
     </div>
   )
 }
