@@ -1,4 +1,4 @@
-section {
+.section {
     padding: 50px 0;
 
     & h2.section-heading {
@@ -22,7 +22,7 @@ section {
 }
 
 @media (min-width: 768px) {
-    section {
+    .section {
         padding: 130px 0 150px 0;
     }
 }
