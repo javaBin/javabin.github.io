@@ -3,16 +3,13 @@ import Image from "next/image"
 import React from "react"
 import { banks } from "@/data/NorwegianBanks"
 import { PiggyBank } from "lucide-react"
-import { useController, Control, Controller } from "react-hook-form"
+import { Controller } from "react-hook-form"
 import { validateAccountNumber } from "@/lib/expense"
-import { InputProps } from "./ui/input"
 
-// Define base props without form-specific props
-interface AccountInputBaseProps
-  extends Omit<
-    React.ComponentProps<typeof Input>,
-    "onChange" | "onBlur" | "value" | "name"
-  > {
+type AccountInputBaseProps = Omit<
+  React.ComponentProps<typeof Input>,
+  "onChange" | "onBlur" | "value" | "name"
+> & {
   description?: string
   error?: string
 }
@@ -79,6 +76,7 @@ const AccountInputBase = React.forwardRef<
     />
   )
 })
+AccountInputBase.displayName = "AccountInputBase"
 
 // Export the controlled version for use with React Hook Form
 export function AccountInput({

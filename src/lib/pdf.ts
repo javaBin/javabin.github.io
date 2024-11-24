@@ -15,7 +15,7 @@ export async function generatePDF({
 }: z.infer<typeof formSchema>) {
   const pdfDoc = await PDFDocument.create()
   const coverPage = pdfDoc.addPage()
-  const { width, height } = coverPage.getSize()
+  const { height } = coverPage.getSize()
   const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
   const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
@@ -39,7 +39,7 @@ export async function generatePDF({
   const infoLines = [
     { label: "Name:", value: name },
     { label: "Address:", value: `${streetAddress}, ${postalCode} ${city}, ${country}` },
-    { label: "Bank Account:", value: bankAccount },
+    { label: "Bank Account:", value: bankAccount.replace(/\s/g, "") },
     { label: "Email:", value: email },
     { label: "Date:", value: formattedDate },
   ]

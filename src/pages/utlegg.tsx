@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -26,7 +25,7 @@ import { Toaster } from "sonner"
 
 type FormValues = z.infer<typeof formSchema>
 
-// BBAN: 8601 1117947
+// BBAN: 8601 11 17947
 // IBAN: NO9386011117947
 
 export default function ExpensePage() {

@@ -102,10 +102,10 @@ export function CategorySelector({
                         if (!acc[item.category]) {
                           acc[item.category] = []
                         }
-                        acc[item.category].push(item)
+                        acc[item.category]!.push(item)
                         return acc
                       },
-                      {} as Record<string, typeof EXPENSE_CATEGORIES>,
+                      {} as Record<string, typeof EXPENSE_CATEGORIES[number][]>,
                     ),
                   ).map(([groupCategory, items]) => (
                     <CommandGroup key={groupCategory} heading={groupCategory}>
