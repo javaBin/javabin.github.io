@@ -12,21 +12,22 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useState, useCallback } from "react"
+import { useState } from "react"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
 import { Label } from "@/components/ui/label"
 import { generatePDF } from "@/lib/pdf"
 import { Trash2 } from "lucide-react"
-import { CategorySelector } from "@/components/category-selector"
+import { CategorySelector } from "@/components/CategorySelector"
 import { formSchema } from "@/lib/expense"
-import { createWorker } from "tesseract.js"
 import AccountInput from "@/components/AccountInput"
 import { FileUploader } from "@/components/FileUploader"
-import { Toaster, toast } from "sonner"
+import { Toaster } from "sonner"
 
-// Infer TypeScript type from the schema
 type FormValues = z.infer<typeof formSchema>
+
+// BBAN: 8601 1117947
+// IBAN: NO9386011117947
 
 export default function ExpensePage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -70,7 +71,6 @@ export default function ExpensePage() {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true)
     try {
-      // Add the expense report cover page
       const expenseReport = await generatePDF({
         name: data.name,
         streetAddress: data.streetAddress,
@@ -109,15 +109,6 @@ export default function ExpensePage() {
   // Helper to get category item for a specific expense index
   const getCategoryItemForExpense = (index: number) => {
     return overriddenCategoryItems[index] || globalCategoryItem
-  }
-
-  // Helper function to extract numbers from text
-  const extractHighestAmount = (text: string): number | null => {
-    // const numbers = text.match(/\d+([.,]\d{1,2})?/g)
-    const numbers = text.match(/\d+[.,]+\d{1,2}/g)
-    if (!numbers) return null
-
-    return Math.max(...numbers.map((n) => parseFloat(n.replace(",", "."))))
   }
 
   // Add this helper function for image resizing
