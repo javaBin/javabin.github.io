@@ -11,7 +11,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
 import { Label } from "@/components/ui/label"
@@ -54,7 +54,7 @@ export default function ExpensePage() {
       expenses: [
         {
           description: "",
-          category: "",
+          category: globalCategoryItem,
           amount: 0,
           attachment: undefined as unknown as File,
         },
@@ -66,6 +66,15 @@ export default function ExpensePage() {
     control: form.control,
     name: "expenses",
   })
+
+  useEffect(() => {
+    const expenses = form.getValues('expenses')
+    expenses.forEach((_, index) => {
+      if (!overriddenCategoryItems[index]) {
+        form.setValue(`expenses.${index}.category`, globalCategoryItem)
+      }
+    })
+  }, [globalCategoryItem, form, overriddenCategoryItems])
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true)
@@ -282,7 +291,7 @@ export default function ExpensePage() {
                 onClick={() =>
                   append({
                     description: "",
-                    category: "",
+                    category: globalCategoryItem,
                     amount: 0,
                     attachment: new File([], ""),
                   })
