@@ -22,6 +22,8 @@ import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { createWorker } from "tesseract.js"
 import { Wand2 } from "lucide-react"
+import { ZoomIn, ZoomOut } from "lucide-react"
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch"
 
 interface FileUploaderProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
@@ -185,7 +187,6 @@ export function FileUploader(props: FileUploaderProps) {
     const newFiles = files.filter((_, i) => i !== index)
 
     setFiles(newFiles)
-    //TODO: It should be able to call the onChange?
     onValueChange?.(newFiles)
   }
 
@@ -311,6 +312,7 @@ function FileCard({ file, progress, onRemove, onOCRComplete }: FileCardProps) {
       const {
         data: { text },
       } = await worker.recognize(imageUrl)
+      console.log(text)
       const amount = extractHighestAmount(text)
 
       URL.revokeObjectURL(imageUrl)
@@ -400,6 +402,7 @@ interface FilePreviewProps {
 function FilePreview({ file }: FilePreviewProps) {
   const [preview, setPreview] = React.useState<string>("")
   const [isPdfOpen, setIsPdfOpen] = React.useState(false)
+  const [isImageOpen, setIsImageOpen] = React.useState(false)
 
   React.useEffect(() => {
     // Create preview URL when component mounts
@@ -412,14 +415,100 @@ function FilePreview({ file }: FilePreviewProps) {
 
   if (file.type.startsWith("image/")) {
     return (
-      <Image
-        src={preview}
-        alt={file.name}
-        width={48}
-        height={48}
-        loading="lazy"
-        className="aspect-square shrink-0 rounded-md object-cover"
-      />
+      <>
+        <button
+          type="button"
+          onClick={() => setIsImageOpen(true)}
+          className="relative aspect-square size-12 shrink-0 overflow-hidden rounded-md border"
+        >
+          <Image
+            src={preview}
+            alt={file.name}
+            width={48}
+            height={48}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </button>
+
+        <Dialog open={isImageOpen} onOpenChange={setIsImageOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{file.name}</DialogTitle>
+            </DialogHeader>
+            <div className="relative flex h-[75vh] w-full items-center justify-center">
+              <TransformWrapper
+                initialScale={1}
+                minScale={1}
+                maxScale={4}
+                centerOnInit
+                wheel={{ wheelDisabled: false }}
+                doubleClick={{
+                  mode: "toggle",
+                  step: 2,
+                }}
+              >
+                {({ zoomIn, zoomOut, resetTransform }) => (
+                  <>
+                    <TransformComponent
+                      wrapperClass="!w-full"
+                      contentClass="!w-full flex items-center justify-center"
+                    >
+                      <Image
+                        src={preview}
+                        alt={file.name}
+                        width={1200}
+                        height={800}
+                        className="max-h-[70vh] w-auto object-contain"
+                        loading="lazy"
+                        unoptimized
+                      />
+                    </TransformComponent>
+                    <div className="bg-background/80 absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-lg px-4 py-2 backdrop-blur">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => zoomOut()}
+                      >
+                        <ZoomOut className="size-4" />
+                        <span className="sr-only">Zoom out</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => resetTransform()}
+                      >
+                        <Image
+                          src={preview}
+                          alt={file.name}
+                          width={16}
+                          height={16}
+                          className="size-4 object-cover"
+                        />
+                        <span className="sr-only">Reset zoom</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => zoomIn()}
+                      >
+                        <ZoomIn className="size-4" />
+                        <span className="sr-only">Zoom in</span>
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </TransformWrapper>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
     )
   }
 
