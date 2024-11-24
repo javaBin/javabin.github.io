@@ -1,5 +1,5 @@
 import { useTranslation } from "next-i18next"
-import { Region as RegionType } from "../../data/regions"
+import { Region as RegionType } from "../data/regions"
 import { InferGetStaticPropsType } from "next/types"
 import { getStaticProps } from "../pages/publish-kode24"
 import Image from "next/image"

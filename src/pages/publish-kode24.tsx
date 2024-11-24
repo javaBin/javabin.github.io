@@ -1,5 +1,5 @@
 import Head from "next/head"
-import regions from "../../data/regions"
+import regions from "../data/regions"
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
 import { InferGetStaticPropsType } from "next/types"

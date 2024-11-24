@@ -1,7 +1,7 @@
 import { serverSideTranslations } from "next-i18next/serverSideTranslations"
 import nextI18nConfig from "../../next-i18next.config.mjs"
 import { GetStaticPaths, GetStaticPropsContext } from "next"
-import regions from "../../data/regions"
+import regions from "../data/regions"
 import { useTranslation } from "next-i18next"
 import Head from "next/head"
 import { InferGetStaticPropsType } from "next/types"

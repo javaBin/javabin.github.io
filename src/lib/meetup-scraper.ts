@@ -2,7 +2,7 @@ import { z } from "zod"
 import { load } from "cheerio"
 import { remark } from "remark"
 import html from "remark-html"
-import { Region } from "../../data/regions"
+import { Region } from "../data/regions"
 
 const toFormattedDateTimeString = (time: string, locale: string) => {
   const date = new Date(time)

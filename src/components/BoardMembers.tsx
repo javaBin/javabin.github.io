@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { BoardMemberType } from "../../data/boardmembers"
+import { BoardMemberType } from "../data/boardmembers"
 import { useTranslation } from "next-i18next"
 
 const BoardMember = (props: BoardMemberType) => {
